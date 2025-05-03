@@ -1,4 +1,5 @@
 Flask
+gunicorn
 yfinance
 pandas
 scikit-learn
