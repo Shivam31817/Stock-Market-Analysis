@@ -1,27 +1,37 @@
-import yfinance as yf
-import pandas as pd
-from sklearn.linear_model import LinearRegression
-import plotly.graph_objs as go
-
 def predict_stock(ticker):
-    data = yf.download(ticker, period='1y')
-    data = data.dropna()
+    import yfinance as yf
+    from sklearn.linear_model import LinearRegression
+    import pandas as pd
+    import matplotlib.pyplot as plt
+
+    # Fetch data
+    data = yf.download(ticker, period="1y")
+
+    # ✅ Check if data is empty
+    if data.empty:
+        raise ValueError(f"No data found for ticker: {ticker}")
+
+    # Prepare data
+    data = data[['Close']].dropna()
     data['Days'] = range(len(data))
+
+    if data.shape[0] == 0:
+        raise ValueError("Insufficient data to train model.")
 
     X = data[['Days']]
     y = data['Close']
 
     model = LinearRegression()
     model.fit(X, y)
-    next_day = [[len(data)]]
+
+    # Dummy prediction
+    next_day = [[X['Days'].max() + 1]]
     pred_price = model.predict(next_day)[0]
 
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=data.index, y=data['Close'], name='Historical Prices'))
-    fig.add_trace(go.Scatter(x=[data.index[-1], data.index[-1]], y=[y.iloc[-1], pred_price],
-                             mode='lines+markers', name='Prediction'))
+    # Optional: return figure
+    fig = plt.figure()
+    plt.plot(data['Days'], y, label='Actual')
+    plt.plot(next_day, [pred_price], 'ro', label='Predicted')
+    plt.legend()
 
-    fig.update_layout(title=f'{ticker} Stock Price Forecast',
-                      xaxis_title='Date', yaxis_title='Price')
-
-    return data, fig, round(pred_price, 2)
+    return data, fig, pred_price
