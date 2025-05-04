@@ -97,7 +97,7 @@ if st.button("Run Prediction"):
             info = yf.Ticker(ticker).info
             st.markdown(f"**Market Cap:** {info.get('marketCap', 'N/A'):,.0f}")
             st.markdown(f"**PE Ratio (Trailing):** {info.get('trailingPE', 'N/A'):.2f}")
-            st.markdown(f"**Dividend Yield:** {info.get('dividendYield', 'N/A'):.2% if info.get('dividendYield') else 'N/A'}")
+            st.markdown(f"**Dividend Yield:** {'{:.2%}'.format(info.get('dividendYield')) if isinstance(info.get('dividendYield'), float) else 'N/A'}")
             st.markdown(f"**52 Week High / Low:** {info.get('fiftyTwoWeekHigh', 'N/A'):.2f} / {info.get('fiftyTwoWeekLow', 'N/A'):.2f}")
             st.markdown(f"**Beta:** {info.get('beta', 'N/A'):.2f}")
             st.markdown(f"**Forward EPS:** {info.get('forwardEps', 'N/A'):.2f}")
