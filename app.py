@@ -33,7 +33,7 @@ if st.button("Run Prediction"):
 
             # Model training
             X = data[['Days']]
-            y = data['Close'].values
+            y = data['Close'].values.reshape(-1)
             model = LinearRegression()
             model.fit(X, y)
 
