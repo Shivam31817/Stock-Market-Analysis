@@ -4,11 +4,16 @@ import yfinance as yf
 import plotly.graph_objs as go
 from sklearn.linear_model import LinearRegression
 from io import StringIO
-from statsmodels.tsa.arima.model import ARIMA  # Import ARIMA
+from statsmodels.tsa.arima.model import ARIMA
 from datetime import datetime, timedelta
+import requests
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+# --- Replace with your actual NewsAPI key ---
+NEWS_API_KEY = "YOUR_NEWSAPI_KEY"
 
 st.set_page_config(page_title="📈 Advanced Stock Market Analysis", layout="wide")
-st.title("📊 Enhanced Stock Price Analysis with ARIMA")
+st.title("📊 Enhanced Stock Price Analysis with ARIMA & Sentiment")
 
 # --- Input Section ---
 tickers_input = st.text_area("Enter Stock Ticker Symbols (comma-separated)", "AAPL")
@@ -37,12 +42,8 @@ if st.button("Run Analysis"):
 
             # --- ARIMA Prediction ---
             try:
-                # Fit ARIMA model (you might need to determine the order (p, d, q))
-                # This is a placeholder order (5, 1, 0). You should analyze ACF and PACF.
-                model_arima = ARIMA(data['Close'], order=(5, 1, 0))
+                model_arima = ARIMA(data['Close'], order=(5, 1, 0))  # Placeholder order
                 model_arima_fit = model_arima.fit()
-
-                # Forecast future values
                 forecast_result = model_arima_fit.get_forecast(steps=future_days)
                 future_preds = forecast_result.predicted_mean.values
                 pred_dates = pd.date_range(data.index[-1], periods=future_days + 1, freq='B')[1:]
@@ -96,13 +97,34 @@ if st.button("Run Analysis"):
             st.markdown(f"**Forward EPS:** {info.get('forwardEps', 'N/A'):.2f}")
             st.markdown(f"**Price to Book:** {info.get('priceToBook', 'N/A'):.2f}")
             st.markdown(f"**Revenue Growth (YoY):** {'{:.2%}'.format(info.get('revenueGrowth')) if isinstance(info.get('revenueGrowth'), float) else 'N/A'}")
-            # --- News Sentiment (Placeholder - Requires API Integration) ---
-            st.subheader(f"📰 {ticker} - News Sentiment (Coming Soon)")
-            st.info("Integration with a News API and sentiment analysis will be added here.")
 
-            # --- Analyst Ratings (Placeholder - Requires API Integration) ---
-            st.subheader(f"📈 {ticker} - Analyst Ratings (Coming Soon)")
-            st.info("Integration with an Analyst Ratings API will be added here.")
+            # --- News Sentiment ---
+            st.subheader(f"📰 {ticker} - News Sentiment")
+            try:
+                url = f"https://newsapi.org/v2/everything?q={ticker}&apiKey={NEWS_API_KEY}&sortBy=relevancy&pageSize=5"
+                response = requests.get(url)
+                response.raise_for_status()  # Raise an exception for HTTP errors
+                news_data = response.json()
+                sentiment_analyzer = SentimentIntensityAnalyzer()
+                total_compound_score = 0
+                if news_data.get("status") == "ok" and news_data.get("articles"):
+                    for article in news_data["articles"]:
+                        headline = article.get("title", "")
+                        if headline:
+                            vs = sentiment_analyzer.polarity_scores(headline)
+                            total_compound_score += vs["compound"]
+                    avg_sentiment = total_compound_score / len(news_data["articles"]) if news_data["articles"] else 0
+                    st.metric("Average Headline Sentiment", f"{avg_sentiment:.2f}")
+                else:
+                    st.info("Could not fetch news or no articles found.")
+            except requests.exceptions.RequestException as e_news:
+                st.error(f"Error fetching news: {e_news}")
+            except Exception as e_sentiment:
+                st.error(f"Error processing news sentiment: {e_sentiment}")
+
+            # --- Analyst Ratings (Placeholder) ---
+            st.subheader(f"📈 {ticker} - Analyst Ratings (Integration Placeholder)")
+            st.info("Integration with an Analyst Ratings API would be added here. You would need to find a suitable API and implement the fetching and display logic.")
 
         except Exception as e:
             st.error(f"Error for {ticker}: {e}")
