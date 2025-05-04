@@ -95,8 +95,7 @@ if st.button("Run Analysis"):
             st.markdown(f"**Beta:** {info.get('beta', 'N/A'):.2f}")
             st.markdown(f"**Forward EPS:** {info.get('forwardEps', 'N/A'):.2f}")
             st.markdown(f"**Price to Book:** {info.get('priceToBook', 'N/A'):.2f}")
-            st.markdown(f"**Revenue Growth (YoY):** {info.get('revenueGrowth', 'N/A'):.2% if isinstance(info.get('revenueGrowth'), float) else 'N/A'}")
-
+            st.markdown(f"**Revenue Growth (YoY):** {'{:.2%}'.format(info.get('revenueGrowth')) if isinstance(info.get('revenueGrowth'), float) else 'N/A'}")
             # --- News Sentiment (Placeholder - Requires API Integration) ---
             st.subheader(f"📰 {ticker} - News Sentiment (Coming Soon)")
             st.info("Integration with a News API and sentiment analysis will be added here.")
