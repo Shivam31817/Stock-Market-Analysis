@@ -3,4 +3,5 @@ yfinance
 pandas
 scikit-learn
 matplotlib
+plotly
 
