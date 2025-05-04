@@ -58,14 +58,37 @@ if st.button("Run Prediction"):
                 future_preds = forecast['yhat'][-future_days:].values
                 pred_dates = forecast['ds'][-future_days:].values
 
+            # --- Debugging Outputs ---
+            st.subheader(f"⚠️ Debugging Data for Plotting ({ticker})")
+            st.write(f"Shape of data.index: {data.index.shape}, Type: {type(data.index)}")
+            st.write(f"Shape of data['Close']: {data['Close'].shape}, Type: {type(data['Close'])}")
+            if 'SMA_20' in data.columns:
+                st.write(f"Shape of data['SMA_20']: {data['SMA_20'].shape}, Type: {type(data['SMA_20'])}")
+            else:
+                st.write("SMA_20 column not present.")
+            if pred_dates is not None:
+                st.write(f"Shape of pred_dates: {pred_dates.shape}, Type: {type(pred_dates)}")
+            else:
+                st.write("pred_dates is None.")
+            if future_preds is not None:
+                st.write(f"Shape of future_preds: {future_preds.shape}, Type: {type(future_preds)}")
+            else:
+                st.write("future_preds is None.")
+            # --- End Debugging Outputs ---
+
             # Plotting
-            if not data.empty:  # Check if there's data to plot
+            if not data.empty:
                 fig = go.Figure()
                 fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines+markers', name='Actual'))
                 if 'SMA_20' in data.columns and not data['SMA_20'].isnull().all():
                     fig.add_trace(go.Scatter(x=data.index, y=data['SMA_20'], mode='lines', name='SMA (20 days)'))
-                if pred_dates is not None and future_preds is not None:
+                if pred_dates is not None and future_preds is not None and len(pred_dates) > 0 and len(future_preds) > 0:
                     fig.add_trace(go.Scatter(x=pred_dates, y=future_preds, mode='lines+markers', name='Predicted'))
+                elif pred_dates is None or future_preds is None:
+                    st.warning(f"Prediction data is not available for {ticker}.")
+                elif len(pred_dates) == 0 or len(future_preds) == 0:
+                    st.warning(f"Prediction data has zero length for {ticker}.")
+
 
                 st.plotly_chart(fig, use_container_width=True)
 
@@ -79,7 +102,7 @@ if st.button("Run Prediction"):
                 # CSV download
                 combined_df = pd.concat([
                     data[['Close', 'SMA_20']].set_index(data.index),
-                    pd.DataFrame({'Close': future_preds}, index=pred_dates) if pred_dates is not None and future_preds is not None else pd.DataFrame()
+                    pd.DataFrame({'Close': future_preds}, index=pred_dates) if pred_dates is not None and future_preds is not None and len(pred_dates) > 0 and len(future_preds) > 0 else pd.DataFrame()
                 ])
                 csv = combined_df.to_csv().encode('utf-8')
                 st.download_button(
