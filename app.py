@@ -21,7 +21,8 @@ if st.button("Predict"):
             st.pyplot(fig)
 
             st.subheader("💰 Predicted Closing Price for Next Day:")
-            st.metric(label="Predicted Price", value=f"${pred_price:.2f}")
+            st.metric(label="Predicted Price", value=f"${pred_price:.item():.2f}")
+
 
         except Exception as e:
             st.error(f"Error: {e}")
