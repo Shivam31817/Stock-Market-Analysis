@@ -50,7 +50,8 @@ if st.button("Run Prediction"):
             st.plotly_chart(fig, use_container_width=True)
 
             # Predicted price for next day
-            st.metric("📍 Next Day Predicted Price", f"${future_preds[0]:.2f}")
+            st.metric("📍 Next Day Predicted Price", f"${future_preds[0].item():.2f}")
+
 
             # Show data
             st.subheader("📉 Recent Data")
