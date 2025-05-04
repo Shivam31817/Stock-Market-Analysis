@@ -1,24 +1,27 @@
 import streamlit as st
-import pandas as pd
-from model import your_model_function  # Replace with actual function
+from model import predict_stock  # ✅ Correct function
+import matplotlib.pyplot as plt
 
-st.set_page_config(page_title="Stock Market Analysis", layout="wide")
+st.set_page_config(page_title="📈 Stock Market Analysis", layout="wide")
+st.title("📊 Stock Price Prediction")
 
-st.title("📈 Stock Market Analysis Dashboard")
+# User input
+ticker = st.text_input("Enter Stock Ticker Symbol", "AAPL")
 
-# Upload or select a stock
-ticker = st.text_input("Enter Stock Ticker", "AAPL")
-start_date = st.date_input("Start Date")
-end_date = st.date_input("End Date")
+if st.button("Predict"):
+    with st.spinner("Fetching data and predicting..."):
+        try:
+            data, fig, pred_price = predict_stock(ticker)
 
-if st.button("Analyze"):
-    try:
-        df = your_model_function(ticker, start_date, end_date)  # Assuming it fetches and processes data
-        st.success(f"Showing data for {ticker}")
-        st.dataframe(df)
+            st.success(f"Prediction complete for {ticker}")
+            st.subheader("📉 Historical Closing Prices")
+            st.dataframe(data.tail(10))
 
-        # Plot
-        st.line_chart(df["Close"])  # Replace with your actual columns
-    except Exception as e:
-        st.error(f"Error: {e}")
+            st.subheader("📈 Prediction Plot")
+            st.pyplot(fig)
 
+            st.subheader("💰 Predicted Closing Price for Next Day:")
+            st.metric(label="Predicted Price", value=f"${pred_price:.2f}")
+
+        except Exception as e:
+            st.error(f"Error: {e}")
