@@ -1,6 +1,6 @@
-Flask
-gunicorn
+streamlit
 yfinance
 pandas
 scikit-learn
-plotly
+matplotlib
+
