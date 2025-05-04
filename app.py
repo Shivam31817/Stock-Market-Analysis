@@ -14,7 +14,7 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 NEWS_API_KEY = "73b30eeff4514155a04655d5ad1e58b0"  # Now using the key you provided
 
 st.set_page_config(page_title="📈 Advanced Stock Market Analysis", layout="wide")
-st.title("📊 Enhanced Stock Price Analysis with ARIMA & Sentiment")
+st.title("📊 Stock Price Analysis with ARIMA & Sentiment")
 
 # --- Input Section ---
 tickers_input = st.text_area("Enter Stock Ticker Symbols (comma-separated)", "AAPL")
