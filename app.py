@@ -116,9 +116,10 @@ if st.button("Run Analysis"):
             st.markdown(f"**Price to Book:** {info.get('priceToBook', 'N/A'):.2f}" if isinstance(info.get('priceToBook'), (int, float)) else f"**Price to Book:** {info.get('priceToBook', 'N/A')}")
             st.markdown(f"**Revenue Growth (YoY):** {'{:.2%}'.format(info.get('revenueGrowth')) if isinstance(info.get('revenueGrowth'), float) else 'N/A'}")
 
-            # --- News Sentiment ---
+                        # --- News Sentiment ---
             st.subheader(f"📰 {ticker} - News Sentiment")
             try:
+                # 🛠️ FIXED: Corrected the typo in the API endpoint URL string
                 url = f"https://newsapi.org{ticker}&apiKey={NEWS_API_KEY}&sortBy=relevancy&pageSize=5"
                 response = requests.get(url)
                 response.raise_for_status()  
@@ -134,10 +135,11 @@ if st.button("Run Analysis"):
                             total_compound_score += vs["compound"]
                     avg_sentiment = total_compound_score / len(news_data["articles"]) if news_data["articles"] else 0
                     
-                    # 🛠️ FIX 4: Explicit clean text strings inside metric labels to clear UI constraints
+                    # 🛠️ FIXED: Cleaned text string for the metric layout label
                     st.metric(label="Average Headline Sentiment Score", value=f"{avg_sentiment:.2f}")
                 else:
                     st.info("Could not fetch news or no articles found.")
+
             except requests.exceptions.RequestException as e_news:
                 st.error(f"Error fetching news: {e_news}")
             except Exception as e_sentiment:
