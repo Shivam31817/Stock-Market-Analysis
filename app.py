@@ -35,14 +35,14 @@ if st.button("Run Analysis"):
                 st.warning(f"No data found for {ticker}")
                 continue
 
-            # 🛠️ FIX 1: Flatten Multi-Index columns created by newer yfinance versions
+            # Flatten Multi-Index columns created by newer yfinance versions
             if isinstance(data.columns, pd.MultiIndex):
                 data.columns = data.columns.get_level_values(0)
 
-            # Isolate the Close price and drop missing row rows
+            # Isolate the Close price and drop missing rows
             data = data[['Close']].dropna().copy()
             
-            # 🛠️ FIX 2: Standardize the date index frequency explicitly for ARIMA statistical rules
+            # Standardize the date index frequency explicitly for ARIMA statistical rules
             data.index = pd.to_datetime(data.index).tz_localize(None)
             data = data.asfreq('B')  # Force standard Business Days calendar frequency
             data['Close'] = data['Close'].ffill()  # Fill weekends and market holidays smoothly
@@ -77,17 +77,18 @@ if st.button("Run Analysis"):
             elif len(pred_dates) == 0 or len(future_preds) == 0:
                 st.warning(f"ARIMA prediction data has zero length for {ticker}.")
 
-            st.plotly_chart(fig, use_container_width=True)
+            # 🛠️ FIX: Replaced use_container_width=True with modern layout syntax parameter width='stretch'
+            st.plotly_chart(fig, width='stretch')
 
-            # 🛠️ FIX 3: Safe numerical extraction from flat NumPy matrices for st.metric display
+            # 🛠️ FIX: Using raw string (r"") formatting parameter to eliminate the invalid character escape sequence warning
             if future_preds is not None and future_preds.size > 0:
                 next_day_val = float(future_preds.ravel()[0])
-                st.metric("📍 Next Day Predicted Price (ARIMA)", f"\${next_day_val:.2f}")
+                st.metric("📍 Next Day Predicted Price (ARIMA)", rf"\${next_day_val:.2f}")
             else:
                 st.metric("📍 Next Day Predicted Price (ARIMA)", "N/A")
 
             # Show data matrix tracking logs
-            st.subheader(f"📉 Recent Data Ledger with SMA")
+            st.subheader("📉 Recent Data Ledger with SMA")
             st.dataframe(data.tail(10))
 
             # CSV Data Export Engine Compiler
@@ -120,7 +121,6 @@ if st.button("Run Analysis"):
             # --- VADER NLP News Sentiment Engine ---
             st.subheader(f"📰 {ticker} - News Sentiment")
             try:
-                # 🛠️ FIX 4: Fully corrected typo-free API endpoint target URL
                 url = f"https://newsapi.org{ticker}&apiKey={NEWS_API_KEY}&sortBy=relevancy&pageSize=5"
                 response = requests.get(url)
                 response.raise_for_status()  
@@ -136,7 +136,6 @@ if st.button("Run Analysis"):
                             total_compound_score += vs["compound"]
                     avg_sentiment = total_compound_score / len(news_data["articles"]) if news_data["articles"] else 0
                     
-                    # 🛠️ FIX 5: Standard clean context text inside the metric display card labels
                     st.metric(label="Average Headline Sentiment Score", value=f"{avg_sentiment:.2f}")
                 else:
                     st.info("Could not fetch news or no articles found matching this asset query filter.")
