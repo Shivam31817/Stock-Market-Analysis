@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import yfinance as yf
 import plotly.graph_objs as go
 from sklearn.linear_model import LinearRegression
@@ -10,8 +11,7 @@ import requests
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # --- Replace with your actual NewsAPI key ---
-# --- Replace with your actual NewsAPI key ---
-NEWS_API_KEY = "73b30eeff4514155a04655d5ad1e58b0"  # Now using the key you provided
+NEWS_API_KEY = "73b30eeff4514155a04655d5ad1e58b0"  
 
 st.set_page_config(page_title="📈 Advanced Stock Market Analysis", layout="wide")
 st.title("📊 Stock Price Analysis with ARIMA & Sentiment")
@@ -35,7 +35,18 @@ if st.button("Run Analysis"):
                 st.warning(f"No data found for {ticker}")
                 continue
 
+            # 🛠️ FIX 1: Flatten Multi-Index columns created by newer yfinance versions
+            if isinstance(data.columns, pd.MultiIndex):
+                data.columns = data.columns.get_level_values(0)
+
+            # Isolate the Close price and clean index metadata
             data = data[['Close']].dropna().copy()
+            data.index = pd.to_datetime(data.index).tz_localize(None)
+            
+            # 🛠️ FIX 2: Format dates to force a consistent business-day frequency for ARIMA stability
+            data = data.asfreq('B')
+            data['Close'] = data['Close'].ffill() # Fill weekends and market holidays smoothly
+            
             data['Days'] = range(len(data))
 
             # Calculate Simple Moving Average (SMA)
@@ -43,9 +54,11 @@ if st.button("Run Analysis"):
 
             # --- ARIMA Prediction ---
             try:
-                model_arima = ARIMA(data['Close'], order=(5, 1, 0))  # Placeholder order
+                # Fit model on the clean 1D series array
+                model_arima = ARIMA(data['Close'], order=(5, 1, 0))  
                 model_arima_fit = model_arima.fit()
                 forecast_result = model_arima_fit.get_forecast(steps=future_days)
+                
                 future_preds = forecast_result.predicted_mean.values
                 pred_dates = pd.date_range(data.index[-1], periods=future_days + 1, freq='B')[1:]
             except Exception as e_arima:
@@ -56,8 +69,10 @@ if st.button("Run Analysis"):
             # Plotting with SMA and Predictions
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=data.index, y=data['Close'], mode='lines+markers', name='Actual'))
+            
             if 'SMA_20' in data.columns and not data['SMA_20'].isnull().all():
                 fig.add_trace(go.Scatter(x=data.index, y=data['SMA_20'], mode='lines', name='SMA (20 days)'))
+                
             if pred_dates is not None and future_preds is not None and len(pred_dates) > 0 and len(future_preds) > 0:
                 fig.add_trace(go.Scatter(x=pred_dates, y=future_preds, mode='lines+markers', name='Predicted'))
             elif pred_dates is None or future_preds is None:
@@ -67,18 +82,24 @@ if st.button("Run Analysis"):
 
             st.plotly_chart(fig, use_container_width=True)
 
-            # Predicted price for next day
-            st.metric(f"📍 Next Day Predicted Price (ARIMA)", f"${future_preds[0].item():.2f}" if future_preds is not None and future_preds.size > 0 else "N/A")
+            # 🛠️ FIX 3: Safe value extraction from flat NumPy arrays for next-day metric UI
+            if future_preds is not None and future_preds.size > 0:
+                next_day_val = float(future_preds.ravel()[0])
+                st.metric(f"📍 Next Day Predicted Price (ARIMA)", f"\${next_day_val:.2f}")
+            else:
+                st.metric(f"📍 Next Day Predicted Price (ARIMA)", "N/A")
 
             # Show data with SMA
             st.subheader(f"📉 Recent Data with SMA")
             st.dataframe(data.tail(10))
 
-            # CSV download
-            combined_df = pd.concat([
-                data[['Close', 'SMA_20']].set_index(data.index),
-                pd.DataFrame({'Close': future_preds}, index=pred_dates) if pred_dates is not None and future_preds is not None and len(pred_dates) > 0 and len(future_preds) > 0 else pd.DataFrame()
-            ])
+            # CSV download asset compiler
+            if pred_dates is not None and future_preds is not None and len(pred_dates) > 0 and len(future_preds) > 0:
+                pred_df = pd.DataFrame({'Close': future_preds.parent if hasattr(future_preds, 'parent') else future_preds}, index=pred_dates)
+            else:
+                pred_df = pd.DataFrame()
+                
+            combined_df = pd.concat([data[['Close', 'SMA_20']], pred_df])
             csv = combined_df.to_csv().encode('utf-8')
             st.download_button(
                 label=f"⬇️ Download {ticker} Data with Prediction (ARIMA) as CSV",
@@ -87,16 +108,16 @@ if st.button("Run Analysis"):
                 mime='text/csv'
             )
 
-            # Enhanced Stock Info
+            # Enhanced Stock Info metrics parsing
             st.subheader(f"📊 {ticker} - Stock Information")
             info = yf.Ticker(ticker).info
             st.markdown(f"**Market Cap:** {info.get('marketCap', 'N/A'):,.0f}")
-            st.markdown(f"**PE Ratio (Trailing):** {info.get('trailingPE', 'N/A'):.2f}")
+            st.markdown(f"**PE Ratio (Trailing):** {info.get('trailingPE', 'N/A'):.2f}" if isinstance(info.get('trailingPE'), (int, float)) else f"**PE Ratio (Trailing):** {info.get('trailingPE', 'N/A')}")
             st.markdown(f"**Dividend Yield:** {'{:.2%}'.format(info.get('dividendYield')) if isinstance(info.get('dividendYield'), float) else 'N/A'}")
-            st.markdown(f"**Earnings Per Share (TTM):** {info.get('trailingEps', 'N/A'):.2f}")
-            st.markdown(f"**Beta:** {info.get('beta', 'N/A'):.2f}")
-            st.markdown(f"**Forward EPS:** {info.get('forwardEps', 'N/A'):.2f}")
-            st.markdown(f"**Price to Book:** {info.get('priceToBook', 'N/A'):.2f}")
+            st.markdown(f"**Earnings Per Share (TTM):** {info.get('trailingEps', 'N/A'):.2f}" if isinstance(info.get('trailingEps'), (int, float)) else f"**Earnings Per Share (TTM):** {info.get('trailingEps', 'N/A')}")
+            st.markdown(f"**Beta:** {info.get('beta', 'N/A'):.2f}" if isinstance(info.get('beta'), (int, float)) else f"**Beta:** {info.get('beta', 'N/A')}")
+            st.markdown(f"**Forward EPS:** {info.get('forwardEps', 'N/A'):.2f}" if isinstance(info.get('forwardEps'), (int, float)) else f"**Forward EPS:** {info.get('forwardEps', 'N/A')}")
+            st.markdown(f"**Price to Book:** {info.get('priceToBook', 'N/A'):.2f}" if isinstance(info.get('priceToBook'), (int, float)) else f"**Price to Book:** {info.get('priceToBook', 'N/A')}")
             st.markdown(f"**Revenue Growth (YoY):** {'{:.2%}'.format(info.get('revenueGrowth')) if isinstance(info.get('revenueGrowth'), float) else 'N/A'}")
 
             # --- News Sentiment ---
@@ -104,10 +125,11 @@ if st.button("Run Analysis"):
             try:
                 url = f"https://newsapi.org/v2/everything?q={ticker}&apiKey={NEWS_API_KEY}&sortBy=relevancy&pageSize=5"
                 response = requests.get(url)
-                response.raise_for_status()  # Raise an exception for HTTP errors
+                response.raise_for_status()  
                 news_data = response.json()
                 sentiment_analyzer = SentimentIntensityAnalyzer()
                 total_compound_score = 0
+                
                 if news_data.get("status") == "ok" and news_data.get("articles"):
                     for article in news_data["articles"]:
                         headline = article.get("title", "")
