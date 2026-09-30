@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import requests
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
-# --- Replace with your actual NewsAPI key ---
+# --- NewsAPI Key configuration ---
 NEWS_API_KEY = "73b30eeff4514155a04655d5ad1e58b0"  
 
 st.set_page_config(page_title="📈 Advanced Stock Market Analysis", layout="wide")
@@ -35,16 +35,16 @@ if st.button("Run Analysis"):
                 st.warning(f"No data found for {ticker}")
                 continue
 
-            # 🛠️ FIX 1: Flatten Multi-Index columns created by modern yfinance versions
+            # Flatten Multi-Index columns from yfinance
             if isinstance(data.columns, pd.MultiIndex):
                 data.columns = data.columns.get_level_values(0)
 
             data = data[['Close']].dropna().copy()
             
-            # 🛠️ FIX 2: Standardize the date index frequency explicitly to clear the ARIMA Index error
+            # Standardize index frequency for ARIMA
             data.index = pd.to_datetime(data.index).tz_localize(None)
-            data = data.asfreq('B')  # Resample data to standard Business Days frequency
-            data['Close'] = data['Close'].ffill()  # Interpolate values for weekends/holidays smoothly
+            data = data.asfreq('B')  
+            data['Close'] = data['Close'].ffill()  
             
             data['Days'] = range(len(data))
 
@@ -53,7 +53,6 @@ if st.button("Run Analysis"):
 
             # --- ARIMA Prediction ---
             try:
-                # ARIMA can now read the regularized business frequency index safely
                 model_arima = ARIMA(data['Close'], order=(5, 1, 0))  
                 model_arima_fit = model_arima.fit()
                 forecast_result = model_arima_fit.get_forecast(steps=future_days)
@@ -78,7 +77,7 @@ if st.button("Run Analysis"):
 
             st.plotly_chart(fig, use_container_width=True)
 
-            # 🛠️ FIX 3: Robust index handling to dynamically unpack the NumPy predictive metric 
+            # Metric display extraction
             if future_preds is not None and future_preds.size > 0:
                 next_day_val = float(future_preds.ravel()[0])
                 st.metric("📍 Next Day Predicted Price (ARIMA)", f"\${next_day_val:.2f}")
@@ -89,7 +88,7 @@ if st.button("Run Analysis"):
             st.subheader(f"📉 Recent Data with SMA")
             st.dataframe(data.tail(10))
 
-            # CSV download
+            # CSV download compiler
             if pred_dates is not None and future_preds is not None and len(pred_dates) > 0 and len(future_preds) > 0:
                 pred_df = pd.DataFrame({'Close': future_preds.ravel()}, index=pred_dates)
             else:
@@ -116,10 +115,10 @@ if st.button("Run Analysis"):
             st.markdown(f"**Price to Book:** {info.get('priceToBook', 'N/A'):.2f}" if isinstance(info.get('priceToBook'), (int, float)) else f"**Price to Book:** {info.get('priceToBook', 'N/A')}")
             st.markdown(f"**Revenue Growth (YoY):** {'{:.2%}'.format(info.get('revenueGrowth')) if isinstance(info.get('revenueGrowth'), float) else 'N/A'}")
 
-                        # --- News Sentiment ---
+            # --- News Sentiment ---
             st.subheader(f"📰 {ticker} - News Sentiment")
             try:
-                # 🛠️ FIXED: Corrected the typo in the API endpoint URL string
+                # Target endpoint with clean format properties string
                 url = f"https://newsapi.org{ticker}&apiKey={NEWS_API_KEY}&sortBy=relevancy&pageSize=5"
                 response = requests.get(url)
                 response.raise_for_status()  
@@ -135,11 +134,9 @@ if st.button("Run Analysis"):
                             total_compound_score += vs["compound"]
                     avg_sentiment = total_compound_score / len(news_data["articles"]) if news_data["articles"] else 0
                     
-                    # 🛠️ FIXED: Cleaned text string for the metric layout label
                     st.metric(label="Average Headline Sentiment Score", value=f"{avg_sentiment:.2f}")
                 else:
                     st.info("Could not fetch news or no articles found.")
-
             except requests.exceptions.RequestException as e_news:
                 st.error(f"Error fetching news: {e_news}")
             except Exception as e_sentiment:
