@@ -11,7 +11,7 @@ import requests
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
 # --- Production NewsAPI Key Configuration ---
-NEWS_API_KEY = "73b30eeff4514155a04655d5ad1e58b0"  
+NEWS_API_KEY = st.secrets.get("NEWS_API_KEY", "")
 
 st.set_page_config(page_title="📈 Advanced Stock Market Analysis", layout="wide")
 st.title("📊 Stock Price Analysis with ARIMA & Sentiment")
@@ -41,12 +41,12 @@ if st.button("Run Analysis"):
 
             # Isolate the Close price and drop missing rows
             data = data[['Close']].dropna().copy()
-            
+
             # Standardize the date index frequency explicitly for ARIMA statistical rules
             data.index = pd.to_datetime(data.index).tz_localize(None)
             data = data.asfreq('B')  # Force standard Business Days calendar frequency
             data['Close'] = data['Close'].ffill()  # Fill weekends and market holidays smoothly
-            
+
             data['Days'] = range(len(data))
 
             # Calculate Technical Indicator (20-Day Simple Moving Average)
@@ -55,7 +55,7 @@ if st.button("Run Analysis"):
             # --- ARIMA Prediction Engine ---
             try:
                 # Fit structural model on the clean 1D continuous data series
-                model_arima = ARIMA(data['Close'], order=(5, 1, 0))  
+                model_arima = ARIMA(data['Close'], order=(5, 1, 0))
                 model_arima_fit = model_arima.fit()
                 forecast_result = model_arima_fit.get_forecast(steps=future_days)
                 future_preds = forecast_result.predicted_mean.values
@@ -77,10 +77,10 @@ if st.button("Run Analysis"):
             elif len(pred_dates) == 0 or len(future_preds) == 0:
                 st.warning(f"ARIMA prediction data has zero length for {ticker}.")
 
-            # 🛠️ FIX: Replaced use_container_width=True with modern layout syntax parameter width='stretch'
+            # Replaced use_container_width=True with modern layout syntax parameter width='stretch'
             st.plotly_chart(fig, width='stretch')
 
-            # 🛠️ FIX: Using raw string (r"") formatting parameter to eliminate the invalid character escape sequence warning
+            # Using raw string formatting to eliminate the invalid character escape sequence warning
             if future_preds is not None and future_preds.size > 0:
                 next_day_val = float(future_preds.ravel()[0])
                 st.metric("📍 Next Day Predicted Price (ARIMA)", rf"\${next_day_val:.2f}")
@@ -96,7 +96,7 @@ if st.button("Run Analysis"):
                 pred_df = pd.DataFrame({'Close': future_preds.ravel()}, index=pred_dates)
             else:
                 pred_df = pd.DataFrame()
-            
+
             combined_df = pd.concat([data[['Close', 'SMA_20']], pred_df])
             csv = combined_df.to_csv().encode('utf-8')
             st.download_button(
@@ -121,24 +121,46 @@ if st.button("Run Analysis"):
             # --- VADER NLP News Sentiment Engine ---
             st.subheader(f"📰 {ticker} - News Sentiment")
             try:
-                url = f"https://newsapi.org{ticker}&apiKey={NEWS_API_KEY}&sortBy=relevancy&pageSize=5"
-                response = requests.get(url)
-                response.raise_for_status()  
-                news_data = response.json()
-                sentiment_analyzer = SentimentIntensityAnalyzer()
-                total_compound_score = 0
-                
-                if news_data.get("status") == "ok" and news_data.get("articles"):
-                    for article in news_data["articles"]:
-                        headline = article.get("title", "")
-                        if headline:
-                            vs = sentiment_analyzer.polarity_scores(headline)
-                            total_compound_score += vs["compound"]
-                    avg_sentiment = total_compound_score / len(news_data["articles"]) if news_data["articles"] else 0
-                    
-                    st.metric(label="Average Headline Sentiment Score", value=f"{avg_sentiment:.2f}")
+                if not NEWS_API_KEY:
+                    st.error("NEWS_API_KEY is missing. Configure it in .streamlit/secrets.toml.")
                 else:
-                    st.info("Could not fetch news or no articles found matching this asset query filter.")
+                    # Correct NewsAPI endpoint and query parameters
+                    url = "https://newsapi.org/v2/everything"
+
+                    params = {
+                        "q": ticker,
+                        "apiKey": NEWS_API_KEY,
+                        "sortBy": "relevancy",
+                        "pageSize": 5,
+                        "language": "en"
+                    }
+
+                    response = requests.get(url, params=params, timeout=10)
+                    response.raise_for_status()
+                    news_data = response.json()
+
+                    sentiment_analyzer = SentimentIntensityAnalyzer()
+                    total_compound_score = 0
+
+                    if news_data.get("status") == "ok" and news_data.get("articles"):
+                        for article in news_data["articles"]:
+                            headline = article.get("title", "")
+                            if headline:
+                                vs = sentiment_analyzer.polarity_scores(headline)
+                                total_compound_score += vs["compound"]
+
+                        avg_sentiment = (
+                            total_compound_score / len(news_data["articles"])
+                            if news_data["articles"] else 0
+                        )
+
+                        st.metric(
+                            label="Average Headline Sentiment Score",
+                            value=f"{avg_sentiment:.2f}"
+                        )
+                    else:
+                        st.info("Could not fetch news or no articles found matching this asset query filter.")
+
             except requests.exceptions.RequestException as e_news:
                 st.error(f"Error fetching real-time news assets: {e_news}")
             except Exception as e_sentiment:
