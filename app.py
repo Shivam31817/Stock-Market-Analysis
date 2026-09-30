@@ -13,7 +13,33 @@ from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 # --- Replace with your actual NewsAPI key ---
 NEWS_API_KEY = "73b30eeff4514155a04655d5ad1e58b0"  
 
+# --- Global Page Configuration (MUST be the absolute first command) ---
 st.set_page_config(page_title="📈 Advanced Stock Market Analysis", layout="wide")
+
+# --- Global CSS: Background Image with 20% Opacity (80% Transparency Mask) ---
+bg_image_url = "https://unsplash.com"
+
+st.markdown(
+    f"""
+    <style>
+    .stApp {{
+        background: linear-gradient(rgba(255, 255, 255, 0.80), rgba(255, 255, 255, 0.80)), 
+                    url("{bg_image_url}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+        background-attachment: fixed;
+    }}
+    
+    /* Extra spacing configuration to elevate metrics visibility over the background mask */
+    div[data-testid="stMetricValue"] {{
+        font-weight: bold;
+    }}
+    </style>
+    """,
+    unsafe_allow_html=True
+)
+
 st.title("📊 Stock Price Analysis with ARIMA & Sentiment")
 
 # --- Input Section ---
@@ -35,7 +61,7 @@ if st.button("Run Analysis"):
                 st.warning(f"No data found for {ticker}")
                 continue
 
-            # 🛠️ FIX 1: Flatten Multi-Index columns created by newer yfinance versions
+            # FIX 1: Flatten Multi-Index columns created by newer yfinance versions
             if isinstance(data.columns, pd.MultiIndex):
                 data.columns = data.columns.get_level_values(0)
 
@@ -43,7 +69,7 @@ if st.button("Run Analysis"):
             data = data[['Close']].dropna().copy()
             data.index = pd.to_datetime(data.index).tz_localize(None)
             
-            # 🛠️ FIX 2: Format dates to force a consistent business-day frequency for ARIMA stability
+            # FIX 2: Format dates to force a consistent business-day frequency for ARIMA stability
             data = data.asfreq('B')
             data['Close'] = data['Close'].ffill() # Fill weekends and market holidays smoothly
             
@@ -82,7 +108,7 @@ if st.button("Run Analysis"):
 
             st.plotly_chart(fig, use_container_width=True)
 
-            # 🛠️ FIX 3: Safe value extraction from flat NumPy arrays for next-day metric UI
+            # FIX 3: Safe value extraction from flat NumPy arrays for next-day metric UI
             if future_preds is not None and future_preds.size > 0:
                 next_day_val = float(future_preds.ravel()[0])
                 st.metric(f"📍 Next Day Predicted Price (ARIMA)", f"\${next_day_val:.2f}")
@@ -123,7 +149,7 @@ if st.button("Run Analysis"):
             # --- News Sentiment ---
             st.subheader(f"📰 {ticker} - News Sentiment")
             try:
-                url = f"https://newsapi.org/v2/everything?q={ticker}&apiKey={NEWS_API_KEY}&sortBy=relevancy&pageSize=5"
+                url = f"https://newsapi.org{ticker}&apiKey={NEWS_API_KEY}&sortBy=relevancy&pageSize=5"
                 response = requests.get(url)
                 response.raise_for_status()  
                 news_data = response.json()
